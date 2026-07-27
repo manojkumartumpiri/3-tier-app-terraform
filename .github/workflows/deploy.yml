@@ -134,7 +134,7 @@ jobs:
         run: |
           docker build \
             -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG \
-            ./frontend
+            ./shopsphere-frontend
 
           docker push \
             $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG
@@ -152,7 +152,7 @@ jobs:
         run: |
           docker build \
             -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG \
-            ./backend
+            ./shopsphere-backend
 
           docker push \
             $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG
