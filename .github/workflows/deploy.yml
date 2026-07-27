@@ -5,6 +5,8 @@ on:
     branches:
       - main
 
+  workflow_dispatch:
+
 permissions:
   contents: read
   id-token: write
@@ -25,31 +27,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # --------------------------------
+      # Checkout
+      # --------------------------------
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -----------------------------
-      # AWS Authentication using OIDC
-      # -----------------------------
+
+      # --------------------------------
+      # DEBUG GITHUB OIDC TOKEN
+      # Temporary - remove after RCA
+      # --------------------------------
+
+      - name: Debug GitHub OIDC claims
+        shell: bash
+        run: |
+          echo "Requesting GitHub OIDC token..."
+
+          TOKEN_RESPONSE=$(curl -sS \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com")
+
+          TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.value')
+
+          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
+            echo "Unable to obtain GitHub OIDC token"
+            exit 1
+          fi
+
+          PAYLOAD=$(echo "$TOKEN" | cut -d '.' -f2)
+
+          # JWT uses Base64 URL encoding
+          PAYLOAD=$(echo "$PAYLOAD" | tr '_-' '/+')
+
+          case $((${#PAYLOAD} % 4)) in
+            2)
+              PAYLOAD="${PAYLOAD}=="
+              ;;
+            3)
+              PAYLOAD="${PAYLOAD}="
+              ;;
+          esac
+
+          echo ""
+          echo "========== OIDC CLAIMS =========="
+
+          echo "$PAYLOAD" \
+            | base64 -d \
+            | jq '{
+                iss,
+                aud,
+                sub,
+                repository,
+                repository_id,
+                repository_owner,
+                repository_owner_id,
+                ref,
+                ref_type,
+                workflow
+              }'
+
+          echo "================================="
+
+
+      # --------------------------------
+      # AWS Authentication via OIDC
+      # --------------------------------
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-    
+          role-session-name: GitHubActions-ShopSphere
 
-      # -----------------------------
+
+      # --------------------------------
+      # Verify AWS Identity
+      # --------------------------------
+
+      - name: Verify AWS identity
+        run: |
+          aws sts get-caller-identity
+
+
+      # --------------------------------
       # Login to ECR
-      # -----------------------------
+      # --------------------------------
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # -----------------------------
-      # FRONTEND
-      # -----------------------------
+
+      # --------------------------------
+      # Build + Push Frontend
+      # --------------------------------
 
       - name: Build and push frontend
         env:
@@ -64,9 +139,10 @@ jobs:
           docker push \
             $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG
 
-      # -----------------------------
-      # BACKEND
-      # -----------------------------
+
+      # --------------------------------
+      # Build + Push Backend
+      # --------------------------------
 
       - name: Build and push backend
         env:
