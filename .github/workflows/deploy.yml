@@ -1,0 +1,81 @@
+name: ShopSphere Production Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+
+  FRONTEND_ECR_REPOSITORY: kwikit-prod-frontend
+  BACKEND_ECR_REPOSITORY: kwikit-prod-backend
+
+  ECS_CLUSTER: kwikit-prod-cluster
+  FRONTEND_SERVICE: kwikit-prod-frontend-service
+  BACKEND_SERVICE: kwikit-prod-backend-service
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------
+      # AWS Authentication using OIDC
+      # -----------------------------
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # -----------------------------
+      # Login to ECR
+      # -----------------------------
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # -----------------------------
+      # FRONTEND
+      # -----------------------------
+
+      - name: Build and push frontend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG \
+            ./frontend
+
+          docker push \
+            $ECR_REGISTRY/$FRONTEND_ECR_REPOSITORY:$IMAGE_TAG
+
+      # -----------------------------
+      # BACKEND
+      # -----------------------------
+
+      - name: Build and push backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG \
+            ./backend
+
+          docker push \
+            $ECR_REGISTRY/$BACKEND_ECR_REPOSITORY:$IMAGE_TAG
