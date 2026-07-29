@@ -7,6 +7,6 @@ CREATE TABLE IF NOT EXISTS products (
 
 INSERT INTO products (name, price)
 VALUES
-    ('Laptop', 79999.00),
-    ('Headphones', 4999.00),
-    ('Keyboard', 2999.00);
+    ('Laptop', 55555.00),
+    ('Headphones', 555555.00),
+    ('Keyboard', 5555.00);
