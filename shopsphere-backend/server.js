@@ -61,9 +61,9 @@ async function initializeDatabase() {
     await pool.query(`
       INSERT INTO products (name, price)
       VALUES
-        ('Laptop', 79999.00),
-        ('Headphones', 4999.00),
-        ('Keyboard', 2999.00)
+        ('Laptop', 55555.00),
+        ('Headphones', 495555599.00),
+        ('Keyboard', 55555.00)
     `);
 
     console.log("Initial products inserted");
